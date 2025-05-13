@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GGDeals to PCGamingWiki link
 // @namespace    https://www.pcgamingwiki.com/
-// @version      1.1
+// @version      1.2
 // @description  Adds a link to PCGamingWiki in GG.deals game, pack, or DLC pages.
 // @author       Gerardo93
 // @match        https://gg.deals/game/*
@@ -23,12 +23,16 @@
         'Buy cheap ',
         ' Steam Key 🏷️ Best Price',
         ' CD Key 🏷️ Best Price',
-        ' | GG.deals'
+        ' | GG.deals',
+        ' Xbox & PC key - lowest price'
     ];
 
     const cleanedTitle = replaceTargets.reduce((name, target) => {
         return name.replace(target, '');
     }, rawTitle).replace(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/g, '');
+
+    console.log('Título original:', rawTitle);
+    console.log('Título limpio:', cleanedTitle);
 
     // Verificar si "PC" está en los breadcrumbs
     let isPCPlatform = false;
@@ -38,6 +42,17 @@
             isPCPlatform = true;
         }
     });
+
+    // Verificar si el badge ACTIVO contiene "PC"
+    if(!isPCPlatform) {
+        const activeBadge = document.querySelector('.badge-wrapper.menu-item.active');
+        if (activeBadge) {
+            const span = activeBadge.querySelector('span.font-exo');
+            if (span && span.textContent.toLowerCase().includes('pc')) {
+                isPCPlatform = true;
+            }
+        }
+    }
 
     // Crear enlace a PCGamingWiki si es PC
     if(isPCPlatform) {
