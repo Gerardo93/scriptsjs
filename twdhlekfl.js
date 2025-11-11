@@ -1501,12 +1501,14 @@
                     attempts++;
                     const clickA = document.querySelector(`a[data-title="${divIdClickAfterClick.title}"]`);
                     if (clickA) {
+                        clickA.scrollIntoView({ behavior: "smooth", block: "start" });
                         clickA.click();
                         divIdClickAfterClick = null;
                         clearInterval(clickInterval);
                     } else {
                         const clickB = document.querySelector(`a[data-id="${divIdClickAfterClick.id}"]`);
                         if (clickB) {
+                            clickB.scrollIntoView({ behavior: "smooth", block: "start" });
                             clickB.click();
                         } else if (attempts >= 10) {
                             console.warn(`No se encontró el enlace para "${divIdClickAfterClick.id}" después de 10 intentos.`);
