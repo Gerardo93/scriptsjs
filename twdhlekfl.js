@@ -1204,6 +1204,7 @@
                         } else {
                             const target = document.getElementById(d.id);
                             if (target) {
+                                a.scrollIntoView({ behavior: "smooth", block: "start" });
                                 target.scrollIntoView({ behavior: "smooth", block: "start" });
                             } else {
                                 console.warn(`Element with ID ${d.id} and title ${d.title} not found.`);
