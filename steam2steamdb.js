@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam to SteamDB Button
 // @namespace    https://store.steampowered.com/
-// @version      1.1.1
+// @version      1.1.7
 // @description  Adds a SteamDB button to Steam app, bundle, or sub pages in the appropriate action container.
 // @author       Gerardo93
 // @match        https://store.steampowered.com/app/*

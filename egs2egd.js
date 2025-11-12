@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Epic Games Store to EGData Button
 // @namespace    https://www.epicgames.com/store/
-// @version      1.1.1
+// @version      1.1.7
 // @description  Agrega un botón hacia EGData debajo del botón de compra en las páginas de productos de Epic Games Store. Recarga la página cuando la ruta cambia a product o bundle.
 // @author       Gerardo93
 // @match        https://store.epicgames.com/*/p/*
@@ -75,6 +75,18 @@
                     display: inline-flex !important;
                     align-items: center !important;
                     gap: 8px !important;
+                    margin-top: 16px !important;
+                    background: #000 !important; /* fondo negro por defecto */
+                    color: #fff !important; /* texto blanco */
+                    border: none !important;
+                    padding: 8px 12px !important;
+                    cursor: pointer !important;
+                    transition: background 200ms ease, transform 120ms ease;
+                }
+                button[data-egs2egd="true"]:hover {
+                    /* gradiente sutil en hover */
+                    background: #757575 !important;
+                    transform: translateY(-1px);
                 }
                 button[data-egs2egd="true"] .egs2egd-icon {
                     width: 24px;
@@ -82,6 +94,16 @@
                     object-fit: contain;
                     display: inline-block;
                     vertical-align: middle;
+                    filter: none;
+                }
+                button[data-egs2egd="true"] .egs2egd-text-outer,
+                button[data-egs2egd="true"] .egs2egd-text-inner {
+                    color: inherit !important; /* asegurar que el texto sea blanco */
+                }
+                /* Soporte para foco accesible */
+                button[data-egs2egd="true"]:focus {
+                    outline: 2px solid #fff3 !important;
+                    outline-offset: 2px !important;
                 }
             `;
             (document.head || document.documentElement).appendChild(style);
