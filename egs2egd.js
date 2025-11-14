@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Epic Games Store to EGData Button
 // @namespace    https://www.epicgames.com/store/
-// @version      1.1.7
+// @version      1.1.7.1
 // @description  Agrega un botón hacia EGData debajo del botón de compra en las páginas de productos de Epic Games Store. Recarga la página cuando la ruta cambia a product o bundle.
 // @author       Gerardo93
 // @match        https://store.epicgames.com/*/p/*
@@ -41,10 +41,19 @@
         if (!purchaseButton) return null;
 
         let targetContainer = null;
+        let purchaseButtonIsDisabled = purchaseButton.hasAttribute('disabled') || purchaseButton.className.includes('disabled');
         if (urlType === "product") {
             targetContainer = purchaseButton.parentElement;
         } else if (urlType === "bundle") {
-            targetContainer = purchaseButton.parentElement?.parentElement;
+            targetContainer = purchaseButton.parentElement?.parentElement?.parentElement;
+            const div = document.createElement('div');
+            targetContainer.appendChild(div);
+            div.className = purchaseButton.parentElement?.parentElement?.className || '';
+            targetContainer = div;
+            const div_button = document.createElement('div');
+            div_button.className = purchaseButton.parentElement?.className || '';
+            targetContainer.appendChild(div_button);
+            targetContainer = div_button;
         }
         if (!targetContainer) return null;
 
@@ -127,6 +136,7 @@
         button.appendChild(img);
         button.appendChild(textOuter);
 
+        if (!purchaseButtonIsDisabled && urlType === "bundle") button.style.marginLeft = '0px';
         targetContainer.appendChild(button);
 
         console.log(`(egs2egd): ✅ ${gameTitle} [${urlType}] — button added successfully ➡️ ${egDataLink}`);
