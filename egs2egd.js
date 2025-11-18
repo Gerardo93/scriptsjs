@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Epic Games Store to EGData Button
 // @namespace    https://www.epicgames.com/store/
-// @version      1.1.7.2
+// @version      1.1.7.3
 // @description  Agrega un botón hacia EGData debajo del botón de compra en las páginas de productos de Epic Games Store. Recarga la página cuando la ruta cambia a product o bundle.
 // @author       Gerardo93
 // @match        https://store.epicgames.com/*/p/*
@@ -42,20 +42,20 @@
 
         let targetContainer = null;
         let purchaseButtonIsDisabled = purchaseButton.hasAttribute('disabled') || purchaseButton.className.includes('disabled');
-        if (urlType === "product") {
-            targetContainer = purchaseButton.parentElement;
-        } else if (urlType === "bundle") {
-            targetContainer = purchaseButton.parentElement?.parentElement?.parentElement;
-            if(purchaseButtonIsDisabled) purchaseButton.style.marginLeft = '0px';
-            const div = document.createElement('div');
-            targetContainer.appendChild(div);
-            //div.className = purchaseButton.parentElement?.parentElement?.className || '';
-            targetContainer = div;
-            const div_button = document.createElement('div');
-            //div_button.className = purchaseButton.parentElement?.className || '';
-            targetContainer.appendChild(div_button);
-            targetContainer = div_button;
-        }
+        // if (urlType === "product") {
+        //     targetContainer = purchaseButton.parentElement;
+        // } else if (urlType === "bundle") {
+        targetContainer = purchaseButton.parentElement?.parentElement?.parentElement;
+        if (purchaseButtonIsDisabled) purchaseButton.style.marginLeft = '0px';
+        const div = document.createElement('div');
+        targetContainer.appendChild(div);
+        //div.className = purchaseButton.parentElement?.parentElement?.className || '';
+        targetContainer = div;
+        const div_button = document.createElement('div');
+        //div_button.className = purchaseButton.parentElement?.className || '';
+        targetContainer.appendChild(div_button);
+        targetContainer = div_button;
+        // }
         if (!targetContainer) return null;
 
         // Evitar duplicados
@@ -70,7 +70,6 @@
         button.style.display = 'inline-flex';
         button.style.alignItems = 'center';
         button.style.gap = '8px';
-        button.style.marginTop = '16px';
         button.setAttribute('data-egs2egd', 'true');
         button.setAttribute('data-egs2egd-slug', slug);
         button.onclick = () => window.open(egDataLink, '_blank');
@@ -85,7 +84,6 @@
                     display: inline-flex !important;
                     align-items: center !important;
                     gap: 8px !important;
-                    margin-top: 16px !important;
                     background: #000 !important; /* fondo negro por defecto */
                     color: #fff !important; /* texto blanco */
                     border: none !important;
@@ -138,6 +136,7 @@
         button.appendChild(textOuter);
 
         //if (!purchaseButtonIsDisabled && urlType === "bundle") button.style.marginLeft = '0px';
+        if (urlType === "bundle") button.style.marginTop = '0.625rem';
         targetContainer.appendChild(button);
 
         console.log(`(egs2egd): ✅ ${gameTitle} [${urlType}] — button added successfully ➡️ ${egDataLink}`);
