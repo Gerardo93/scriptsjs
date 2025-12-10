@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.9
+// @version      1.3.9.10
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -168,9 +168,21 @@
         }
         function getNotifications() {
             const stored = GM_getValue(STORAGE_NOTIFS, null);
-            if (!stored) return [];
+            if (!stored) return []; 
             try {
-                return JSON.parse(stored);
+                const arr = JSON.parse(stored);
+                // migrate: ensure each notification has a unique key = title|id
+                let migrated = false;
+                for (const n of arr) {
+                    if (!n.key) {
+                        n.key = (n.title || '') + '|' + (n.id || '');
+                        migrated = true;
+                    }
+                }
+                if (migrated) {
+                    try { GM_setValue(STORAGE_NOTIFS, JSON.stringify(arr)); } catch (e) { /* noop */ }
+                }
+                return arr;
             } catch (e) {
                 console.warn("Error leyendo notificaciones:", e);
                 return [];
@@ -178,6 +190,10 @@
         }
         function saveNotifications(arr) {
             try {
+                // ensure keys exist before saving
+                for (const n of arr) {
+                    if (!n.key) n.key = (n.title || '') + '|' + (n.id || '');
+                }
                 GM_setValue(STORAGE_NOTIFS, JSON.stringify(arr));
             } catch (e) {
                 console.warn("Error guardando notificaciones:", e);
@@ -232,14 +248,35 @@
             }
         }
 
-        function markNotificationSeen(title) {
+        function markNotificationSeen(identifier) {
+            // identifier can be a key (title|id) or a plain title
             const notifs = getNotifications();
-            const n = notifs.find((x) => x.title === title);
-            if (n) {
-                n.seen = true;
-                n.updatedAt = Date.now();
-                saveNotifications(notifs);
+            let changed = false;
+            if (typeof identifier === 'string' && identifier.includes('|')) {
+                // treat as key (strictly mark only the matching title-id)
+                for (const n of notifs) {
+                    if (n.key === identifier && !n.seen) {
+                        n.seen = true;
+                        n.updatedAt = Date.now();
+                        changed = true;
+                    }
+                }
+            } else {
+                // fallback: identifier is a plain title. Only mark if there is exactly one notification with that title.
+                const title = identifier;
+                const matches = notifs.filter(n => n.title === title);
+                if (matches.length === 1) {
+                    const n = matches[0];
+                    if (!n.seen) {
+                        n.seen = true;
+                        n.updatedAt = Date.now();
+                        changed = true;
+                    }
+                } else if (matches.length > 1) {
+                    console.warn("Hay varias notificaciones con el mismo título; usa la key 'title|id' para marcar una concreta:", title);
+                }
             }
+            if (changed) saveNotifications(notifs);
             // actualizar el título y detener sonido si no quedan pendientes
             updateNotificationTitleAndSound();
         }
@@ -987,18 +1024,29 @@
                 btn.onclick = () => {
                     // remover visualmente
                     row.remove();
-                    markNotificationSeen(n.title);
-                    // buscar el link correspondiente y quitar el emoji de campana
-                    let linkEl = document.querySelector(`a[data-title="${n.title}"]`);
-                    if (linkEl) {
-                        if (linkEl.dataset.id.includes('active')) {
+                    markNotificationSeen(n.key || n.title);
+                    // quitar campana en todos los enlaces que coincidan con title y/o id
+                    const notifTitle = n.title;
+                    const notifId = (n.key && n.key.includes('|')) ? n.key.split('|')[1] : (n.id || '');
+                    // selector por title e id (si existe)
+                    const selParts = [];
+                    if (notifTitle) selParts.push(`a[data-title="${notifTitle}"]`);
+                    if (notifId) selParts.push(`a[data-id="${notifId}"]`);
+                    const combinedSel = selParts.join(',');
+                    const matches = combinedSel ? Array.from(document.querySelectorAll(combinedSel)) : [];
+                    if (matches.length) {
+                        matches.forEach(linkEl => {
                             const bellIcon = linkEl.querySelector('span');
-                            if (bellIcon) {
-                                bellIcon.remove();
-                                linkEl.scrollIntoView({ behavior: "smooth", block: "start" });
-                                linkEl.click(); // navegar al drop
-                            }
-                        }
+                            if (bellIcon) bellIcon.remove();
+                        });
+                        // preferir abrir link con el mismo id, si no, uno activo, si no, el primero
+                        let preferred = null;
+                        if (notifId) preferred = matches.find(l => (l.dataset.id || '') === notifId);
+                        if (!preferred) preferred = matches.find(l => (l.dataset.id || '').includes('active')) || matches[0];
+                        try {
+                            preferred.scrollIntoView({ behavior: "smooth", block: "start" });
+                            preferred.click();
+                        } catch (e) { /* noop */ }
                     }
                     // si no hay más, quitar popup
                     if (!container.querySelectorAll('div').length || container.querySelectorAll('div').length <= 1) {
@@ -1458,11 +1506,14 @@
                 let changedFlag = false;
                 if (!isExpired) {
                     const notifs = getNotifications();
-                    let existing = notifs.find((n) => n.title === titleText);
+                    const computedKey = titleText + '|' + id;
+                    let existing = notifs.find((n) => n.key === computedKey);
                     if (existing) {
                         if (existing.lastSnapshot !== snapshot) {
                             // hubo cambio: marcar y volver a mostrar hasta que el usuario pulse 'visto'
                             existing.id = id; // actualizar id por si cambió
+                            // actualizar key en caso de que venga sin ella o con id antiguo
+                            existing.key = (existing.title || titleText) + '|' + id;
                             existing.changed = true;
                             existing.seen = false;
                             existing.lastSnapshot = snapshot;
@@ -1477,6 +1528,7 @@
                         const newN = {
                             id,
                             title: titleText,
+                            key: titleText + '|' + id,
                             lastSnapshot: snapshot,
                             seen: false,
                             changed: true, // marcar como cambiado para notificar al usuario
