@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.10
+// @version      1.3.9.11
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -1415,10 +1415,14 @@
                                         toRemove.push(imgToRemove);
                                     }
                                 });
-                                const button = container.querySelector("button.ScCoreButton-sc-ocjdkq-0.kJMgAB");
-                                if (button && type === "expired" && !container.dataset.buttonClicked) {
-                                    container.dataset.buttonClicked = "true";
-                                    button.click();
+                                const buttons = Array.from(container.querySelectorAll("button.ScCoreButton-sc-ocjdkq-0.kJMgAB"));
+                                if (buttons.length && type === "expired") {
+                                    buttons.forEach((btn, i) => {
+                                        if (!btn.dataset.buttonClicked) {
+                                            btn.dataset.buttonClicked = "true";
+                                            setTimeout(() => btn.click(), i * 150);
+                                        }
+                                    });
                                 }
                             }
                         }
