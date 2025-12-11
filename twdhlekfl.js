@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.11
+// @version      1.3.9.12
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -826,7 +826,7 @@
 
         // Muestra las keywords en un div (click para borrar)
         function setKeywordsInDiv(div, keywordsArr) {
-            keywordsArr.forEach((k, i) => {
+            keywordsArr.sort((a, b) => a.localeCompare(b)).forEach((k, i) => {
                 const span = document.createElement("span");
                 span.textContent = k;
                 span.className = "ScCoreLink-sc-16kq0mq-0 gcA-DkW tw-link";
@@ -996,7 +996,7 @@
             header.style.marginBottom = '8px';
             container.appendChild(header);
 
-            pending.forEach(n => {
+            pending.sort((a, b) => a.title.localeCompare(b.title)).forEach(n => {
                 const row = document.createElement('div');
                 row.style.display = 'flex';
                 row.style.justifyContent = 'space-between';
@@ -1218,7 +1218,7 @@
 
                 // crear enlaces (document fragment para menos reflow)
                 const frag = document.createDocumentFragment();
-                items.forEach((d) => {
+                items.sort((a, b) => a.title.localeCompare(b.title)).forEach((d) => {
                     const a = document.createElement("a");
                     a.dataset.title = d.title;
                     a.dataset.color = color;
