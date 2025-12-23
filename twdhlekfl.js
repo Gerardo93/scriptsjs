@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.12
+// @version      1.3.9.12.1
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -1224,6 +1224,9 @@
                     a.dataset.color = color;
                     a.dataset.icon = icon;
                     a.dataset.id = d.id;
+                    a.dataset.key = d.key;
+                    a.dataset.idx = d.idx;
+                    a.dataset.status = d.status;
                     a.textContent = `${icon} ${d.title}`;
                     // si el item fue marcado como cambiado, añadir indicador visual
                     if (d.changed) {
@@ -1248,8 +1251,9 @@
                         if (actualPath !== "/drops/campaigns") {
                             const campaignsLink = document.querySelector('a[href="/drops/campaigns"]');
                             if (campaignsLink) {
-                                campaignsLink.click();
                                 divIdClickAfterClick = d;
+                                console.log(`Navigating to campaigns page to view drop with ID ${d.id} and title ${d.title}...`);
+                                campaignsLink.click();
                             }
                         } else {
                             const target = document.getElementById(d.id);
@@ -1508,21 +1512,22 @@
 
                 // Actualizar/crear notificación persistente
                 let changedFlag = false;
+                const computedKey = titleText + '|' + id;
                 if (!isExpired) {
                     const notifs = getNotifications();
-                    const computedKey = titleText + '|' + id;
                     let existing = notifs.find((n) => n.key === computedKey);
                     if (existing) {
                         if (existing.lastSnapshot !== snapshot) {
                             // hubo cambio: marcar y volver a mostrar hasta que el usuario pulse 'visto'
                             existing.id = id; // actualizar id por si cambió
                             // actualizar key en caso de que venga sin ella o con id antiguo
-                            existing.key = (existing.title || titleText) + '|' + id;
+                            existing.key = computedKey;
                             existing.changed = true;
                             existing.seen = false;
                             existing.lastSnapshot = snapshot;
                             existing.updatedAt = Date.now();
                             changedFlag = true;
+                            notifs[notifs.indexOf(existing)] = existing;
                             saveNotifications(notifs);
                         } else {
                             changedFlag = !existing.seen && existing.changed;
@@ -1530,9 +1535,9 @@
                     } else {
                         // nuevo drop encontrado -> guardar notificación (no marcado como cambiado aún)
                         const newN = {
-                            id,
+                            id: id,
                             title: titleText,
-                            key: titleText + '|' + id,
+                            key: computedKey,
                             lastSnapshot: snapshot,
                             seen: false,
                             changed: true, // marcar como cambiado para notificar al usuario
@@ -1545,7 +1550,14 @@
                     }
                 }
 
-                const item = { title: titleText, id, changed: changedFlag };
+                const item = { 
+                    title: titleText, 
+                    id, 
+                    changed: changedFlag,
+                    key: computedKey,
+                    status: isExpired ? 'expired' : 'active',
+                    idx: index
+                };
                 (isExpired ? expired : active).push(item);
             });
 
@@ -1558,14 +1570,14 @@
                 let attempts = 0;
                 const clickInterval = setInterval(() => {
                     attempts++;
-                    const clickA = document.querySelector(`a[data-title="${divIdClickAfterClick.title}"]`);
+                    const clickA = document.querySelector(`a[data-key="${divIdClickAfterClick.key}"]`);
                     if (clickA) {
                         clickA.scrollIntoView({ behavior: "smooth", block: "start" });
                         clickA.click();
                         divIdClickAfterClick = null;
                         clearInterval(clickInterval);
                     } else {
-                        const clickB = document.querySelector(`a[data-id="${divIdClickAfterClick.id}"]`);
+                        const clickB = document.querySelector(`a[id="${divIdClickAfterClick.id}"]`);
                         if (clickB) {
                             clickB.scrollIntoView({ behavior: "smooth", block: "start" });
                             clickB.click();
