@@ -204,7 +204,7 @@
         }
         // --- control de versión del script (guardar en GM) ---
         const SCRIPT_VERSION_KEY = "twitch_script_version";
-        const SCRIPT_VERSION = "1.3.9.12.2"; // debe coincidir con @version en el header
+        const SCRIPT_VERSION = "1.3.9.14"; // debe coincidir con @version en el header
 
         // Si la versión almacenada es distinta o nula, resetea todas las notificaciones
         function checkAndHandleScriptVersion() {
