@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.12.1
+// @version      1.3.9.12.2
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -202,6 +202,29 @@
         function resetNotifications() {
             GM_deleteValue(STORAGE_NOTIFS);
         }
+        // --- control de versión del script (guardar en GM) ---
+        const SCRIPT_VERSION_KEY = "twitch_script_version";
+        const SCRIPT_VERSION = "1.3.9.12.2"; // debe coincidir con @version en el header
+
+        // Si la versión almacenada es distinta o nula, resetea todas las notificaciones
+        function checkAndHandleScriptVersion() {
+            try {
+                const stored = GM_getValue(SCRIPT_VERSION_KEY, null);
+                if (stored === null || stored !== SCRIPT_VERSION) {
+                    // limpiar notificaciones al cambiar la versión
+                    resetNotifications();
+                    // actualizar la versión almacenada
+                    try {
+                        GM_setValue(SCRIPT_VERSION_KEY, SCRIPT_VERSION);
+                    } catch (e) {
+                        console.warn('No se pudo guardar la versión del script:', e);
+                    }
+                }
+            } catch (e) {
+                console.warn('Error comprobando versión del script:', e);
+            }
+        }
+
         // reproducir un beep corto usando WebAudio (no requiere archivos externos)
         function playBeep(duration = 150, frequency = 800, volume = NOTIFICATION_VOLUME) {
             try {
@@ -341,6 +364,13 @@
         let deletedInventoryDrops = getInventoryDeletedKeys();
         let cleanExpiredInventoryFlag = GM_getValue(SHOW_HIDE_INVENTORY_EXPIRED, false);
         let cleanActiveInventoryFlag = GM_getValue(SHOW_HIDE_INVENTORY_ACTIVE, false);
+
+        // Comprobar versión del script y resetear notificaciones si ha cambiado
+        try {
+            if (typeof checkAndHandleScriptVersion === 'function') checkAndHandleScriptVersion();
+        } catch (e) {
+            console.warn('Error ejecutando checkAndHandleScriptVersion:', e);
+        }
 
         // --- estilos y colores ---
         //const isDarkMode = document.documentElement.classList.contains("tw-root--theme-dark");
@@ -1503,12 +1533,13 @@
                 seenTitles.add(index);
 
                 const id = `drop-match-${idx++}-${isExpired ? 'expired' : 'active'}`;
-                node.id = id;
-                // Aplicar estilo al padre para resaltar (conservando comportamiento original)
-                if (node.parentElement) node.parentElement.setAttribute('style', isExpired ? EXPIRED_STYLE : ACTIVE_STYLE);
 
                 // Generar snapshot simple del nodo para detectar cambios (texto relevante limitado)
                 const snapshot = ((node.innerText || node.textContent) + '').trim().slice(0, 800);
+
+                node.id = id;
+                // Aplicar estilo al padre para resaltar (conservando comportamiento original)
+                if (node.parentElement) node.parentElement.setAttribute('style', isExpired ? EXPIRED_STYLE : ACTIVE_STYLE);
 
                 // Actualizar/crear notificación persistente
                 let changedFlag = false;
