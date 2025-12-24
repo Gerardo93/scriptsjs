@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.12.2
+// @version      1.3.9.14
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -1517,7 +1517,7 @@
                     titleP = ps[1];
                     style = window.getComputedStyle(titleP);
 
-                    titleText = titleP.textContent.trim() + " - " + titleText;
+                    titleText = titleText + " - " + titleP.textContent.trim();
                     titleLc = titleText.toLowerCase();
 
                     if (!keywords.some(k => titleLc.includes(k))) return;
