@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.14
+// @version      1.3.9.15
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -204,7 +204,7 @@
         }
         // --- control de versión del script (guardar en GM) ---
         const SCRIPT_VERSION_KEY = "twitch_script_version";
-        const SCRIPT_VERSION = "1.3.9.14"; // debe coincidir con @version en el header
+        const SCRIPT_VERSION = "1.3.9.15"; // debe coincidir con @version en el header
 
         // Si la versión almacenada es distinta o nula, resetea todas las notificaciones
         function checkAndHandleScriptVersion() {
@@ -1161,6 +1161,9 @@
         const ACTIVE_STYLE = `border: 4px solid #0a5738 !important; box-shadow: 0 0 30px #00c274 !important; border-radius: 16px !important; scroll-margin-top: 100px;`;
         const EXPIRED_STYLE = `border: 4px solid #971311 !important; box-shadow: 0 0 30px #ff8280 !important; border-radius: 16px !important; scroll-margin-top: 100px;`;
 
+        // flag de depuración para snapshots (activar para diagnosticar falsos positivos)
+        const DEBUG_SNAPSHOTS = false;
+
         // estado para navegación / resultados
         let active = [],
             expired = [],
@@ -1472,6 +1475,27 @@
             }, interval);
         }
 
+        // helper: normalizar snapshot para evitar falsos positivos por timestamps/números
+        function normalizeSnapshot(s) {
+            if (!s) return '';
+            let t = (s + '').replace(/\s+/g, ' ').trim();
+            // eliminar patrones comunes de tiempo "hace X" en varios idiomas básicos
+            t = t.replace(/\b\d+\s+(seconds?|minutes?|hours?|days?|secs?|mins?|hrs?)\s+ago\b/gi, '');
+            t = t.replace(/\b(hace\s+\d+\s+(segundos?|minutos?|horas?|días?))\b/gi, '');
+            t = t.replace(/\b(ago\s+\d+\s+(seconds?|minutes?|hours?|days?))\b/gi, '');
+            // eliminar marcas de fecha/hora ISO y formatos comunes
+            t = t.replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\b/g, '');
+            t = t.replace(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g, '');
+            t = t.replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, '');
+            // eliminar números grandes o contadores que no aportan semántica
+            t = t.replace(/\b\d{1,3}(?:[,\.\s]\d{3})*(?:\.\d+)?\b/g, '');
+            // eliminar porcentajes y símbolos sueltos
+            t = t.replace(/[%$€£]/g, '');
+            // colapsar espacios y llevar a minúsculas para comparación insensible
+            t = t.replace(/\s+/g, ' ').trim().toLowerCase();
+            return t.slice(0, 800);
+        }
+
         // --- resaltar y generar enlaces a drops (campañas) ---
         function highlightAndLinkDrops() {
             const keywords_preview = document.getElementById("keywords-preview");
@@ -1535,7 +1559,9 @@
                 const id = `drop-match-${idx++}-${isExpired ? 'expired' : 'active'}`;
 
                 // Generar snapshot simple del nodo para detectar cambios (texto relevante limitado)
-                const snapshot = ((node.innerText || node.textContent) + '').trim().slice(0, 800);
+                const snapshotRaw = ((node.innerText || node.textContent) + '').trim().slice(0, 800);
+                const snapshot = snapshotRaw; // nombre legacy
+                const normalized = normalizeSnapshot(snapshotRaw);
 
                 node.id = id;
                 // Aplicar estilo al padre para resaltar (conservando comportamiento original)
@@ -1548,18 +1574,26 @@
                     const notifs = getNotifications();
                     let existing = notifs.find((n) => n.key === computedKey);
                     if (existing) {
-                        if (existing.lastSnapshot !== snapshot) {
+                        if (existing.normalizedSnapshot !== normalized) {
                             // hubo cambio: marcar y volver a mostrar hasta que el usuario pulse 'visto'
                             existing.id = id; // actualizar id por si cambió
                             // actualizar key en caso de que venga sin ella o con id antiguo
                             existing.key = computedKey;
                             existing.changed = true;
                             existing.seen = false;
-                            existing.lastSnapshot = snapshot;
+                            existing.lastSnapshot = snapshotRaw;
+                            existing.normalizedSnapshot = normalized;
                             existing.updatedAt = Date.now();
                             changedFlag = true;
                             notifs[notifs.indexOf(existing)] = existing;
                             saveNotifications(notifs);
+                            try {
+                                if (DEBUG_SNAPSHOTS) console.debug('Drops: cambio detectado (normalized diff)', {
+                                    title: titleText.slice(0, 120),
+                                    before: (existing.normalizedSnapshot || '').slice(0, 120),
+                                    after: normalized.slice(0, 120),
+                                });
+                            } catch (e) { /* noop */ }
                         } else {
                             changedFlag = !existing.seen && existing.changed;
                         }
@@ -1569,7 +1603,8 @@
                             id: id,
                             title: titleText,
                             key: computedKey,
-                            lastSnapshot: snapshot,
+                            lastSnapshot: snapshotRaw,
+                            normalizedSnapshot: normalized,
                             seen: false,
                             changed: true, // marcar como cambiado para notificar al usuario
                             createdAt: Date.now(),
