@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GGDeals to PCGamingWiki link
 // @namespace    https://www.pcgamingwiki.com/
-// @version      1.2
+// @version      1.3
 // @description  Adds a link to PCGamingWiki in GG.deals game, pack, or DLC pages.
 // @author       Gerardo93
 // @match        https://gg.deals/game/*
@@ -52,6 +52,16 @@
                 isPCPlatform = true;
             }
         }
+    }
+
+    //Verificar si el badge de Os Content contiene "PC"
+    if(!isPCPlatform) {
+        const osContentSpans = document.querySelectorAll('.os-content .menu-item.active .font-exo');
+        osContentSpans.forEach(span => {
+            if (span.textContent.toLowerCase().includes('pc')) {
+                isPCPlatform = true;
+            }
+        });
     }
 
     // Crear enlace a PCGamingWiki si es PC
