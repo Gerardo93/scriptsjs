@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.15
+// @version      1.3.9.16
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -14,11 +14,13 @@
 
 (function () {
     "use strict";
+    const SCRIPT_VERSION = "1.3.9.16";
     // Este IIFE se ejecuta cuando carga la página y gestiona:
     // - Keywords persistentes (GM_getValue/GM_setValue)
     // - UI para editar/resetear/recargar
     // - Búsqueda, resaltado y enlaces a drops activos/caducados
     // - Limpieza de inventario (ocultar items expirados/activos)
+    console.log("Twitch Drops Highlighter cargado. Versión:", SCRIPT_VERSION);
     console.log("Apple sucks!");
 
     window.addEventListener("load", () => {
@@ -204,7 +206,6 @@
         }
         // --- control de versión del script (guardar en GM) ---
         const SCRIPT_VERSION_KEY = "twitch_script_version";
-        const SCRIPT_VERSION = "1.3.9.15"; // debe coincidir con @version en el header
 
         // Si la versión almacenada es distinta o nula, resetea todas las notificaciones
         function checkAndHandleScriptVersion() {
@@ -1452,7 +1453,15 @@
                                         toRemove.push(imgToRemove);
                                     }
                                 });
-                                const buttons = Array.from(container.querySelectorAll("button.ScCoreButton-sc-ocjdkq-0.kJMgAB"));
+                                const buttons = Array.from(container.querySelectorAll("button")).filter((btn) => {
+                                    const label = btn.querySelector('[data-a-target="tw-core-button-label-text"]');
+                                    const text = (label ? label.textContent : btn.textContent || "").trim().toLowerCase();
+                                    const testSelector = (btn.getAttribute('data-test-selector') || '').toLowerCase();
+                                    const targetSelector = (btn.getAttribute('data-a-target') || '').toLowerCase();
+                                    const innerWithClaim = btn.querySelector('[data-test-selector*="claim"], [data-a-target*="claim"]');
+                                    const hasClaimAttr = testSelector.includes('claim') || targetSelector.includes('claim') || !!innerWithClaim;
+                                    return text.includes("reclamar") || text.includes("claim") || hasClaimAttr;
+                                });
                                 if (buttons.length && type === "expired") {
                                     buttons.forEach((btn, i) => {
                                         if (!btn.dataset.buttonClicked) {
