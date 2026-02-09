@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.16
+// @version      1.3.9.17
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -14,7 +14,7 @@
 
 (function () {
     "use strict";
-    const SCRIPT_VERSION = "1.3.9.16";
+    const SCRIPT_VERSION = "1.3.9.17";
     // Este IIFE se ejecuta cuando carga la página y gestiona:
     // - Keywords persistentes (GM_getValue/GM_setValue)
     // - UI para editar/resetear/recargar
@@ -68,6 +68,13 @@
                 removeIcon: "❌",
                 iconLink: "🔗",
                 iconCross: "❌",
+                scriptInfoTitle: "Información del script",
+                scriptInfoName: "📋 Nombre:",
+                scriptInfoVersion: "🔢 Versión:",
+                scriptInfoDescription: "📝 Descripción:",
+                scriptInfoDescriptionText: "Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.",
+                scriptInfoAuthor: "👤 Autor:",
+                scriptInfoGitHub: "🔗 GitHub:",
             },
             en: {
                 collapse: "🔼 Collapse",
@@ -109,6 +116,13 @@
                 removeIcon: "❌",
                 iconLink: "🔗",
                 iconCross: "❌",
+                scriptInfoTitle: "Script Information",
+                scriptInfoName: "📋 Name:",
+                scriptInfoVersion: "🔢 Version:",
+                scriptInfoDescription: "📝 Description:",
+                scriptInfoDescriptionText: "Classifies active and expired drops with persistent and editable keywords. Displays localized messages and multi-language interface.",
+                scriptInfoAuthor: "👤 Author:",
+                scriptInfoGitHub: "🔗 GitHub:",
             },
         };
         const t = i18n[lang] || i18n["en"];
@@ -170,7 +184,7 @@
         }
         function getNotifications() {
             const stored = GM_getValue(STORAGE_NOTIFS, null);
-            if (!stored) return []; 
+            if (!stored) return [];
             try {
                 const arr = JSON.parse(stored);
                 // migrate: ensure each notification has a unique key = title|id
@@ -523,7 +537,7 @@
 
                 const cancelBtn = document.createElement('button');
                 cancelBtn.textContent = t.cancel || 'Cancelar';
-                Object.assign(cancelBtn.style, { 
+                Object.assign(cancelBtn.style, {
                     padding: '6px 10px',
                     backgroundColor: colors.bg,
                     color: colors.red,
@@ -536,7 +550,7 @@
 
                 const okBtn = document.createElement('button');
                 okBtn.textContent = t.accept || 'Aceptar';
-                Object.assign(okBtn.style, { 
+                Object.assign(okBtn.style, {
                     padding: '6px 10px',
                     backgroundColor: colors.bg,
                     color: colors.green,
@@ -657,11 +671,15 @@
             });
         }
 
-        function showAlertModal(message) {
+        function showAlertModal(message, html = false) {
             return new Promise((resolve) => {
                 const { overlay, box } = createModalContainer();
                 const msg = document.createElement('div');
-                msg.textContent = message;
+                if (html) {
+                    msg.innerHTML = message;
+                } else {
+                    msg.textContent = message;
+                }
                 msg.style.marginBottom = '12px';
                 box.appendChild(msg);
 
@@ -883,6 +901,22 @@
             });
         }
 
+        function createInfoButton() {
+            const infoBtn = document.createElement("span");
+            infoBtn.id = 'script-info-btn';
+            infoBtn.style.marginRight = "8px";
+            infoBtn.textContent = 'ℹ️';
+            infoBtn.title = t.scriptInfoTitle;
+            infoBtn.onclick = () => {
+                const scriptInfo = `` +
+                    `${t.scriptInfoName} Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)<br>` +
+                    `${t.scriptInfoVersion} ${SCRIPT_VERSION}<br>` +
+                    `${t.scriptInfoDescription} ${t.scriptInfoDescriptionText}.`;
+                showAlertModal(scriptInfo, true);
+            }
+            return infoBtn;
+        }
+
         // --- UI de preview de keywords (pequeña caja informativa) ---
         function showKeywordPreview() {
             const existing = document.getElementById("drops-nav-links");
@@ -904,13 +938,18 @@
                 lineHeight: "1.5",
             });
 
+            const divPreviewButtons = document.createElement("div");
+            const infoButton = createInfoButton();
+            divPreviewButtons.appendChild(infoButton);
+
             // colapsar/expandir
-            const collapseElement = document.createElement("div");
+            const collapseElement = document.createElement("span");
             collapseElement.textContent = t.collapse;
-            preview.appendChild(collapseElement);
-            const expandElement = document.createElement("div");
+            divPreviewButtons.appendChild(collapseElement);
+            const expandElement = document.createElement("span");
             expandElement.textContent = t.expand;
-            preview.appendChild(expandElement);
+            divPreviewButtons.appendChild(expandElement);
+            preview.appendChild(divPreviewButtons);
             preview.appendChild(document.createElement("br"));
 
             // keywords list
@@ -1194,13 +1233,18 @@
                 backgroundColor: colors.bg,
             });
 
+            const divNavButtons = document.createElement("div");
+            const infoButton = createInfoButton();
+            divNavButtons.appendChild(infoButton);
+
             // controles colapsar/expandir
-            const collapseElement = document.createElement("div");
+            const collapseElement = document.createElement("span");
             collapseElement.textContent = t.collapse;
-            nav.appendChild(collapseElement);
-            const expandElement = document.createElement("div");
+            divNavButtons.appendChild(collapseElement);
+            const expandElement = document.createElement("span");
             expandElement.textContent = t.expand;
-            nav.appendChild(expandElement);
+            divNavButtons.appendChild(expandElement);
+            nav.appendChild(divNavButtons);
 
             // keywords
             const divKeywords = document.createElement("div");
@@ -1625,9 +1669,9 @@
                     }
                 }
 
-                const item = { 
-                    title: titleText, 
-                    id, 
+                const item = {
+                    title: titleText,
+                    id,
                     changed: changedFlag,
                     key: computedKey,
                     status: isExpired ? 'expired' : 'active',
@@ -1786,7 +1830,7 @@
             : document.documentElement.classList.contains("tw-root--theme-light")
             ? "light"
             : null;
-
+ 
         const themeObserver = new MutationObserver((mutations) => {
             for (const m of mutations) {
                 if (m.type === "attributes" && m.attributeName === "class") {
@@ -1807,7 +1851,7 @@
                 }
             }
         });
-
+ 
         themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
         */
 
