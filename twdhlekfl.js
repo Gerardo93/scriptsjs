@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.17
+// @version      1.3.9.18
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -14,7 +14,7 @@
 
 (function () {
     "use strict";
-    const SCRIPT_VERSION = "1.3.9.17";
+    const SCRIPT_VERSION = "1.3.9.18";
     // Este IIFE se ejecuta cuando carga la página y gestiona:
     // - Keywords persistentes (GM_getValue/GM_setValue)
     // - UI para editar/resetear/recargar
@@ -1410,6 +1410,35 @@
             const maxAttempts = 10;
             const interval = 500;
             const aToRemoveAdded = [];
+
+            const checkNotifications = function (dropTextArrayVar) {
+                if (dropTextArrayVar.length > 0) {
+                    // 1. Abrir el panel de notificaciones si no está abierto
+                    const path = document.querySelector('path[d="M5 3h14l3 6v12H2V9l3-6Zm-.264 5 1.5-3h11.528l1.5 3H15v3a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V8H4.736ZM4 10v9h16v-9h-3v1a3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3v-1H4Z"]');
+                    const openNotifBtn = path?.closest('button');
+                    if (openNotifBtn) {
+                        openNotifBtn.click();
+                        setTimeout(() => {
+                            document.querySelectorAll('.persistent-notification').forEach(notification => {
+                                const body = notification.querySelector('.persistent-notification__body');
+                                if (!body) return;
+                                const notifText = body.innerText.toLowerCase();
+                                if (notifText && dropTextArrayVar.some(dropText => notifText.includes(dropText))) {
+                                    const deleteBtn = notification.querySelector('button[data-test-selector="persistent-notification__delete"]');
+                                    if (deleteBtn) {
+                                        setTimeout(() => {
+                                            deleteBtn.click();
+                                        }, 500);
+                                    }
+                                }
+                            });
+                        }, 1000);
+                    }
+                }
+            };
+            if (type === "expired") {
+                checkNotifications(['drop']);
+            }
             const checker = setInterval(() => {
                 attempts++;
                 const imgs = document.querySelectorAll("img.inventory-opacity-2");
@@ -1506,13 +1535,18 @@
                                     const hasClaimAttr = testSelector.includes('claim') || targetSelector.includes('claim') || !!innerWithClaim;
                                     return text.includes("reclamar") || text.includes("claim") || hasClaimAttr;
                                 });
-                                if (buttons.length && type === "expired") {
-                                    buttons.forEach((btn, i) => {
-                                        if (!btn.dataset.buttonClicked) {
-                                            btn.dataset.buttonClicked = "true";
-                                            setTimeout(() => btn.click(), i * 150);
-                                        }
-                                    });
+                                if (type === "expired") {
+                                    if (buttons.length > 0) {
+                                        buttons.forEach((btn, i) => {
+                                            if (!btn.dataset.buttonClicked) {
+                                                btn.dataset.buttonClicked = "true";
+                                                setTimeout(() => {
+                                                    // Pulsar el botón de reclamar
+                                                    btn.click();
+                                                }, i * 150);
+                                            }
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -1523,7 +1557,6 @@
                         if (el.parentElement) el.parentElement.removeChild(el);
                     });
                 }
-
                 if (attempts >= maxAttempts) clearInterval(checker);
             }, interval);
         }
