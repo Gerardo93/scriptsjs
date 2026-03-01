@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.18
+// @version      1.3.9.19
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -14,7 +14,7 @@
 
 (function () {
     "use strict";
-    const SCRIPT_VERSION = "1.3.9.18";
+    const SCRIPT_VERSION = "1.3.9.19";
     // Este IIFE se ejecuta cuando carga la página y gestiona:
     // - Keywords persistentes (GM_getValue/GM_setValue)
     // - UI para editar/resetear/recargar
@@ -72,7 +72,7 @@
                 scriptInfoName: "📋 Nombre:",
                 scriptInfoVersion: "🔢 Versión:",
                 scriptInfoDescription: "📝 Descripción:",
-                scriptInfoDescriptionText: "Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.",
+                scriptInfoDescriptionText: "Resalta automáticamente drops activos y expirados según keywords personalizables. Notificaciones en tiempo real de cambios, gestión de inventario avanzada y soporte multiidioma.",
                 scriptInfoAuthor: "👤 Autor:",
                 scriptInfoGitHub: "🔗 GitHub:",
             },
@@ -120,7 +120,7 @@
                 scriptInfoName: "📋 Name:",
                 scriptInfoVersion: "🔢 Version:",
                 scriptInfoDescription: "📝 Description:",
-                scriptInfoDescriptionText: "Classifies active and expired drops with persistent and editable keywords. Displays localized messages and multi-language interface.",
+                scriptInfoDescriptionText: "Automatically highlights active and expired drops based on customizable keywords. Real-time change notifications, advanced inventory management, and multi-language support.",
                 scriptInfoAuthor: "👤 Author:",
                 scriptInfoGitHub: "🔗 GitHub:",
             },
@@ -911,7 +911,7 @@
                 const scriptInfo = `` +
                     `${t.scriptInfoName} Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)<br>` +
                     `${t.scriptInfoVersion} ${SCRIPT_VERSION}<br>` +
-                    `${t.scriptInfoDescription} ${t.scriptInfoDescriptionText}.`;
+                    `${t.scriptInfoDescription} ${t.scriptInfoDescriptionText}`;
                 showAlertModal(scriptInfo, true);
             }
             return infoBtn;
@@ -1414,12 +1414,18 @@
             const checkNotifications = function (dropTextArrayVar) {
                 if (dropTextArrayVar.length > 0) {
                     // 1. Abrir el panel de notificaciones si no está abierto
-                    const path = document.querySelector('path[d="M5 3h14l3 6v12H2V9l3-6Zm-.264 5 1.5-3h11.528l1.5 3H15v3a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V8H4.736ZM4 10v9h16v-9h-3v1a3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3v-1H4Z"]');
-                    const openNotifBtn = path?.closest('button');
+                    const path_noti = document.querySelector('path[d="M5 3h14l3 6v12H2V9l3-6Zm-.264 5 1.5-3h11.528l1.5 3H15v3a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V8H4.736ZM4 10v9h16v-9h-3v1a3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3v-1H4Z"]');
+                    const openNotifBtn = path_noti?.closest('button');
                     if (openNotifBtn) {
                         openNotifBtn.click();
+                        let path_close = null;
                         setTimeout(() => {
-                            document.querySelectorAll('.persistent-notification').forEach(notification => {
+                            if (!path_close) {
+                                path_close = document.querySelector('path[d="M6.414 5 5 6.414l5.588 5.588L5 17.59l1.414 1.414 5.588-5.588 5.588 5.588 1.414-1.414-5.588-5.588 5.588-5.588L17.59 5l-5.588 5.588L6.414 5Z"]');
+                            }
+                            const divs = document.querySelectorAll('.persistent-notification');
+                            console.log(divs.length + " notifications found for checking drops...");
+                            divs.forEach((notification, i) => {
                                 const body = notification.querySelector('.persistent-notification__body');
                                 if (!body) return;
                                 const notifText = body.innerText.toLowerCase();
@@ -1428,16 +1434,30 @@
                                     if (deleteBtn) {
                                         setTimeout(() => {
                                             deleteBtn.click();
+                                            if (i === divs.length - 1) {
+                                                setTimeout(() => {
+                                                    const closeNotifBtn = path_close?.closest('button');
+                                                    closeNotifBtn?.click();
+                                                }, 1000);
+                                            }
                                         }, 500);
                                     }
                                 }
                             });
+                            if (divs.length === 0) {
+                                setTimeout(() => {
+                                    const closeNotifBtn = path_close?.closest('button');
+                                    closeNotifBtn?.click();
+                                }, 1000);
+                            }
                         }, 1000);
                     }
                 }
             };
             if (type === "expired") {
-                checkNotifications(['drop']);
+                setTimeout(() => {
+                    checkNotifications(['drop']);
+                }, 2000);
             }
             const checker = setInterval(() => {
                 attempts++;
@@ -1814,9 +1834,9 @@
                             }
                         }
                         if (isInventory) {
-                            if (cleanExpiredInventoryFlag) cleanInventory("expired");
+                            // if (cleanExpiredInventoryFlag) cleanInventory("expired");
                             //if (cleanActiveInventoryFlag) cleanInventory("active");
-                            cleanInventory('')
+                            cleanInventory(cleanExpiredInventoryFlag ? 'expired' : '');
                         }
                     }
                 }
@@ -1849,9 +1869,9 @@
                     waitForDropsFunction();
                 } else {
                     // si estamos en inventory aplicar limpieza si corresponde
-                    if (cleanExpiredInventoryFlag) cleanInventory("expired");
+                    // if (cleanExpiredInventoryFlag) cleanInventory("expired");
                     //if (cleanActiveInventoryFlag) cleanInventory("active");
-                    cleanInventory('')
+                    //cleanInventory(cleanExpiredInventoryFlag ? 'expired' : '');
                 }
             }
         });
@@ -1863,7 +1883,7 @@
             : document.documentElement.classList.contains("tw-root--theme-light")
             ? "light"
             : null;
- 
+
         const themeObserver = new MutationObserver((mutations) => {
             for (const m of mutations) {
                 if (m.type === "attributes" && m.attributeName === "class") {
@@ -1884,7 +1904,7 @@
                 }
             }
         });
- 
+
         themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
         */
 
