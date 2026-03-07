@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.19
+// @version      1.3.9.20
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -14,7 +14,7 @@
 
 (function () {
     "use strict";
-    const SCRIPT_VERSION = "1.3.9.19";
+    const SCRIPT_VERSION = "1.3.9.20";
     // Este IIFE se ejecuta cuando carga la página y gestiona:
     // - Keywords persistentes (GM_getValue/GM_setValue)
     // - UI para editar/resetear/recargar
@@ -1483,7 +1483,13 @@
                                     break;
                                 }
                             }
-                            if (container) toRemove.push(container);
+                            if (container) {
+                                // Verificar si el contenedor contiene el botón de notificaciones para evitar removerlo
+                                const notificationPath = container.querySelector('path[d="M5 3h14l3 6v12H2V9l3-6Zm-.264 5 1.5-3h11.528l1.5 3H15v3a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V8H4.736ZM4 10v9h16v-9h-3v1a3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3v-1H4Z"]');
+                                if (!notificationPath) {
+                                    toRemove.push(container);
+                                }
+                            }
                         }
                         else {
                             let container = img;
@@ -1543,7 +1549,11 @@
                                         }
                                     }
                                     if (imgToRemove && type === "expired") {
-                                        toRemove.push(imgToRemove);
+                                        // Verificar si el contenedor contiene el botón de notificaciones para evitar removerlo
+                                        const notificationPath = imgToRemove.querySelector('path[d="M5 3h14l3 6v12H2V9l3-6Zm-.264 5 1.5-3h11.528l1.5 3H15v3a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V8H4.736ZM4 10v9h16v-9h-3v1a3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3v-1H4Z"]');
+                                        if (!notificationPath) {
+                                            toRemove.push(imgToRemove);
+                                        }
                                     }
                                 });
                                 const buttons = Array.from(container.querySelectorAll("button")).filter((btn) => {
@@ -1835,9 +1845,9 @@
                         }
                         if (isInventory) {
                             // if (cleanExpiredInventoryFlag) cleanInventory("expired");
-                            //if (cleanActiveInventoryFlag) cleanInventory("active");
-                            cleanInventory(cleanExpiredInventoryFlag ? 'expired' : '');
+                            //if (cleanActiveInventoryFlag) cleanInventory("active");                            
                         }
+                        cleanInventory(cleanExpiredInventoryFlag ? 'expired' : '');
                     }
                 }
             }, 500);
@@ -1871,7 +1881,6 @@
                     // si estamos en inventory aplicar limpieza si corresponde
                     // if (cleanExpiredInventoryFlag) cleanInventory("expired");
                     //if (cleanActiveInventoryFlag) cleanInventory("active");
-                    //cleanInventory(cleanExpiredInventoryFlag ? 'expired' : '');
                 }
             }
         });
