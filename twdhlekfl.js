@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.21
+// @version      1.3.9.22
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -14,7 +14,7 @@
 
 (function () {
     "use strict";
-    const SCRIPT_VERSION = "1.3.9.21";
+    const SCRIPT_VERSION = "1.3.9.22";
     // Este IIFE se ejecuta cuando carga la página y gestiona:
     // - Keywords persistentes (GM_getValue/GM_setValue)
     // - UI para editar/resetear/recargar
@@ -1111,8 +1111,7 @@
             markAllBtn.onclick = () => {
                 // marcar todas como vistas
                 markAllNotificationsSeen();
-                // remover el popup
-                container.remove();
+                location.reload();
             };
             header.appendChild(markAllBtn);
 
