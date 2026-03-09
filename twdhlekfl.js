@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.20
+// @version      1.3.9.21
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -14,7 +14,7 @@
 
 (function () {
     "use strict";
-    const SCRIPT_VERSION = "1.3.9.20";
+    const SCRIPT_VERSION = "1.3.9.21";
     // Este IIFE se ejecuta cuando carga la página y gestiona:
     // - Keywords persistentes (GM_getValue/GM_setValue)
     // - UI para editar/resetear/recargar
@@ -57,6 +57,7 @@
                 removeInventory: "❌ Haz clic para eliminar del inventario, para volver a mostrar pulsa el boton de recargar drops",
                 changes_detected: "🔔 Cambios detectados",
                 viewed: "👁️ Mostrar",
+                markAllAsViewed: "👁️ Marcar todas como vistas",
                 accept: "Aceptar",
                 cancel: "Cancelar",
                 yes: "Sí",
@@ -105,6 +106,7 @@
                 removeInventory: "❌ Click to remove from inventory, to show again press the reload drops button",
                 changes_detected: "🔔 Changes detected",
                 viewed: "👁️ Shown",
+                markAllAsViewed: "👁️ Mark all as viewed",
                 accept: "Accept",
                 cancel: "Cancel",
                 yes: "Yes",
@@ -271,8 +273,8 @@
                     startNotificationSound();
                     setTimeout(() => {
                         document.title = `(${pending}) ${ORIGINAL_TITLE}`;
-                        const header = document.getElementById('drops-notification-header');
-                        if (header) header.textContent = `(${pending}) ${t.changes_detected}`;
+                        const headerTitle = document.querySelector('#drops-notification-header > div');
+                        if (headerTitle) headerTitle.textContent = `(${pending}) ${t.changes_detected}`;
                     }, 100);
                 } else {
                     // restaurar título y detener sonido
@@ -312,6 +314,21 @@
                     }
                 } else if (matches.length > 1) {
                     console.warn("Hay varias notificaciones con el mismo título; usa la key 'title|id' para marcar una concreta:", title);
+                }
+            }
+            if (changed) saveNotifications(notifs);
+            // actualizar el título y detener sonido si no quedan pendientes
+            updateNotificationTitleAndSound();
+        }
+
+        function markAllNotificationsSeen() {
+            const notifs = getNotifications();
+            let changed = false;
+            for (const n of notifs) {
+                if (!n.seen && n.changed) {
+                    n.seen = true;
+                    n.updatedAt = Date.now();
+                    changed = true;
                 }
             }
             if (changed) saveNotifications(notifs);
@@ -1061,13 +1078,49 @@
 
             const header = document.createElement('div');
             header.id = 'drops-notification-header';
-            header.textContent = `(${pending.length}) ${t.changes_detected}`;
-            header.style.fontWeight = '700';
+            header.style.display = 'flex';
+            header.style.justifyContent = 'space-between';
+            header.style.alignItems = 'center';
             header.style.marginBottom = '8px';
+            header.style.position = 'sticky';
+            header.style.top = '0';
+            header.style.backgroundColor = colors.bg;
+            header.style.zIndex = '1';
+            header.style.paddingBottom = '4px';
+            header.style.borderBottom = '1px solid ' + colors.purple;
+
+            const title = document.createElement('div');
+            title.textContent = `(${pending.length}) ${t.changes_detected}`;
+            title.style.fontWeight = '700';
+            header.appendChild(title);
+
+            const markAllBtn = document.createElement('button');
+            markAllBtn.textContent = t.markAllAsViewed;
+            markAllBtn.title = t.markAllAsViewed;
+            Object.assign(markAllBtn.style, {
+                backgroundColor: colors.bg,
+                border: '1px solid ' + colors.purple,
+                color: colors.text,
+                padding: '4px 8px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                whiteSpace: 'nowrap',
+                flexShrink: '0',
+            });
+            markAllBtn.onclick = () => {
+                // marcar todas como vistas
+                markAllNotificationsSeen();
+                // remover el popup
+                container.remove();
+            };
+            header.appendChild(markAllBtn);
+
             container.appendChild(header);
 
             pending.sort((a, b) => a.title.localeCompare(b.title)).forEach(n => {
                 const row = document.createElement('div');
+                row.className = 'notification-row';
                 row.style.display = 'flex';
                 row.style.justifyContent = 'space-between';
                 row.style.alignItems = 'center';
@@ -1119,7 +1172,7 @@
                         } catch (e) { /* noop */ }
                     }
                     // si no hay más, quitar popup
-                    if (!container.querySelectorAll('div').length || container.querySelectorAll('div').length <= 1) {
+                    if (container.querySelectorAll('.notification-row').length === 0) {
                         container.remove();
                     }
                 };
@@ -1128,10 +1181,10 @@
                 container.appendChild(row);
             });
 
-            document.body.appendChild(container);
-
             // actualizar título y activar sonido si hay pendientes
             updateNotificationTitleAndSound();
+
+            document.body.appendChild(container);
         }
 
         // --- textos que indican secciones cerradas / campañas cerradas (i18n multi) ---
