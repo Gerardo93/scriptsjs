@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch Drops Highlighter + Links + Editable Keywords (Full + i18n)
 // @namespace    http://tampermonkey.net/
-// @version      1.3.9.23
+// @version      1.3.9.24
 // @description  Clasifica drops activos y caducados con keywords persistentes y editables. Muestra mensajes localizados e interfaz multiidioma.
 // @match        https://www.twitch.tv/drops/*
 // @author       Gerardo93
@@ -14,7 +14,7 @@
 
 (function () {
     "use strict";
-    const SCRIPT_VERSION = "1.3.9.23";
+    const SCRIPT_VERSION = "1.3.9.24";
     // Este IIFE se ejecuta cuando carga la página y gestiona:
     // - Keywords persistentes (GM_getValue/GM_setValue)
     // - UI para editar/resetear/recargar
@@ -80,6 +80,8 @@
                 scriptInfoDescriptionText: "Resalta automáticamente drops activos y expirados según keywords personalizables. Notificaciones en tiempo real de cambios, gestión de inventario avanzada y soporte multiidioma.",
                 scriptInfoAuthor: "👤 Autor:",
                 scriptInfoGitHub: "🔗 GitHub:",
+                loadingDropsFromInventory: "🔄 Leyendo drops desde campañas, por favor espere...",
+                loadingDrops: "🔄 Buscando drops...",
             },
             en: {
                 collapse: "🔼 Collapse",
@@ -129,6 +131,8 @@
                 scriptInfoDescriptionText: "Automatically highlights active and expired drops based on customizable keywords. Real-time change notifications, advanced inventory management, and multi-language support.",
                 scriptInfoAuthor: "👤 Author:",
                 scriptInfoGitHub: "🔗 GitHub:",
+                loadingDropsFromInventory: "🔄 Reading drops from campaigns, please wait...",
+                loadingDrops: "🔄 Searching drops...",
             },
         };
         const t = i18n[lang] || i18n["en"];
@@ -2156,14 +2160,96 @@
          * y muestra el preview de keywords mientras espera.
          * @returns {void}
          */
+        /** @type {HTMLElement|null} Referencia al overlay de carga activo. */
+        let _loadingOverlay = null;
+
+        /**
+         * Muestra un overlay de carga con un mensaje centrado en pantalla.
+         * @param {string} message - Mensaje a mostrar.
+         */
+        function _showLoadingOverlay(message) {
+            _hideLoadingOverlay();
+            const overlay = document.createElement('div');
+            Object.assign(overlay.style, {
+                position: 'fixed',
+                left: '0',
+                top: '0',
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                zIndex: '999999',
+            });
+            const box = document.createElement('div');
+            Object.assign(box.style, {
+                background: colors.bg,
+                color: colors.text,
+                padding: '24px 32px',
+                borderRadius: '10px',
+                fontSize: '16px',
+                fontWeight: '600',
+                boxShadow: '0 6px 18px rgba(0,0,0,0.3)',
+                border: `2px solid ${colors.purple}`,
+                textAlign: 'center',
+            });
+            box.textContent = message;
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            _loadingOverlay = overlay;
+        }
+
+        /**
+         * Oculta y elimina el overlay de carga si existe.
+         */
+        function _hideLoadingOverlay() {
+            if (_loadingOverlay && _loadingOverlay.parentElement) {
+                _loadingOverlay.parentElement.removeChild(_loadingOverlay);
+            }
+            _loadingOverlay = null;
+        }
+
         function waitForDropsFunction() {
             const path = location.pathname;
             const isCampaigns = path.includes("/campaigns");
             const isInventory = path.includes("/inventory");
             actualPath = isCampaigns ? "/drops/campaigns" : isInventory ? "/drops/inventory" : path;
+
+            // Si estamos en inventario, navegar primero a campaigns para leer drops y que aparezca el botón de notificaciones
+            if (isInventory) {
+                const campaignsTab = document.querySelector('a[href="/drops/campaigns"]');
+                if (campaignsTab) {
+                    // Mostrar modal de carga para que el usuario sepa que se están leyendo los drops
+                    _showLoadingOverlay(t.loadingDropsFromInventory);
+                    skipNextUrlChange = true;
+                    campaignsTab.click();
+                    // Esperar a que campaigns cargue, luego hacer polling de drops
+                    setTimeout(() => {
+                        _startDropsPolling(true);
+                    }, 2000);
+                } else {
+                    // No se encontró el tab de campaigns, ejecutar cleanInventory directamente
+                    cleanInventory(cleanExpiredInventoryFlag ? 'expired' : '');
+                }
+                return;
+            }
+
+            _startDropsPolling(false);
+        }
+
+        /**
+         * Inicia el polling de drops en el DOM.
+         * @param {boolean} returnToInventory - Si al terminar debe volver al inventario y ejecutar cleanInventory.
+         */
+        function _startDropsPolling(returnToInventory) {
+            // Mostrar overlay de carga si estamos en campañas directamente
+            if (!returnToInventory) {
+                _showLoadingOverlay(t.loadingDrops);
+            }
             let attempts = 0;
             let previewShown = false;
-            const maxAttempts = isCampaigns ? 10 : 1; // más paciencia en campaigns
+            const maxAttempts = 10; // siempre 10 intentos porque estamos leyendo campaigns
             let waitForDrops = setInterval(() => {
                 let found = 0;
                 const seenTitlesLocal = new Set();
@@ -2187,7 +2273,12 @@
 
                 if (found >= 1) {
                     clearInterval(waitForDrops);
+                    if (!returnToInventory) _hideLoadingOverlay();
                     highlightAndLinkDrops();
+                    // Si venimos del inventario, volver y ejecutar cleanInventory
+                    if (returnToInventory) {
+                        _navigateBackToInventory();
+                    }
                 } else {
                     attempts++;
                     let searchingElem = document.getElementById("searching-status");
@@ -2208,9 +2299,10 @@
                     }
                     if (attempts >= maxAttempts) {
                         clearInterval(waitForDrops);
+                        if (!returnToInventory) _hideLoadingOverlay();
                         if (!previewShown) showKeywordPreview();
                         if (searchingElem) searchingElem.remove();
-                        if (!isInventory) {
+                        if (!returnToInventory) {
                             const preview = document.getElementById("keywords-preview");
                             if (preview) {
                                 const warn = document.createElement("div");
@@ -2225,14 +2317,29 @@
                                 preview.appendChild(warn);
                             }
                         }
-                        if (isInventory) {
-                            // if (cleanExpiredInventoryFlag) cleanInventory("expired");
-                            //if (cleanActiveInventoryFlag) cleanInventory("active");
+                        // Si venimos del inventario, volver y ejecutar cleanInventory
+                        if (returnToInventory) {
+                            _navigateBackToInventory();
                         }
-                        cleanInventory(cleanExpiredInventoryFlag ? 'expired' : '');
                     }
                 }
             }, 500);
+        }
+
+        /**
+         * Navega de vuelta al inventario omitiendo onUrlChange y ejecuta cleanInventory.
+         */
+        function _navigateBackToInventory() {
+            _hideLoadingOverlay();
+            const inventoryTab = document.querySelector('a[href="/drops/inventory"]');
+            if (inventoryTab) {
+                skipNextUrlChange = true;
+                inventoryTab.click();
+                // Esperar a que el inventario cargue antes de limpiar
+                setTimeout(() => {
+                    cleanInventory(cleanExpiredInventoryFlag ? 'expired' : '');
+                }, 2000);
+            }
         }
 
         /**
@@ -2243,6 +2350,7 @@
          * @returns {void}
          */
         let actualPath = "";
+        let skipNextUrlChange = false;
         function onUrlChange(callback) {
             const pushState = history.pushState;
             const replaceState = history.replaceState;
@@ -2261,6 +2369,11 @@
 
         onUrlChange(() => {
             const newPath = location.pathname;
+            if (skipNextUrlChange) {
+                skipNextUrlChange = false;
+                actualPath = newPath;
+                return;
+            }
             if (newPath !== actualPath) {
                 actualPath = newPath;
                 if (newPath.startsWith("/drops/campaigns")) {
@@ -2269,8 +2382,8 @@
                     // si estamos en inventory aplicar limpieza si corresponde
                     // if (cleanExpiredInventoryFlag) cleanInventory("expired");
                     //if (cleanActiveInventoryFlag) cleanInventory("active");
+                    cleanInventory(cleanExpiredInventoryFlag ? 'expired' : '');
                 }
-                cleanInventory(cleanExpiredInventoryFlag ? 'expired' : '');
             }
         });
 
